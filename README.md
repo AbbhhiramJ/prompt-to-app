@@ -1,57 +1,49 @@
 # Prompt → App
 
-Natural-language application builder: describe an app, then let the orchestrator plan, generate, run, test, and iteratively repair it.
+Natural-language application builder: describe an app, then let the orchestrator plan, generate, run, test, and repair it.
 
-## v0.3
+## v0.4 — bounded automatic repair
 
-The MVP now includes:
-
-1. Natural-language prompt
-2. Ollama-backed planning
-3. Ollama-backed code generation
-4. Deterministic fallback generation
-5. Filesystem verification
-6. Optional local app execution
-7. HTTP reachability verification
-
-### Run
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e '.[dev]'
-
-prompt-to-app "Build a simple habit tracker" --serve
-```
-
-If verification passes, the generated app is served at:
-
-```
-http://127.0.0.1:8000
-```
-
-Use `--port` to select another port.
-
-## Architecture
+The pipeline now supports up to a configurable number of repair attempts:
 
 ```
 Prompt
   ↓
-Planner ──────→ Ollama
+Planner → Ollama
   ↓
 AppPlan
   ↓
-Generator ────→ Ollama
+Generator → Ollama
   ↓
-Generated files
+Files
   ↓
 Verifier
   ↓
-Runner ────────→ local process
+Errors? ── no ──→ Runner → HTTP check → Working app
+  │
+ yes
   ↓
-HTTP probe
-  ↓
-Working app
+Repair Engine → Ollama
+  │
+  └──────────────→ Verifier
 ```
 
-The model provides reasoning and code generation. The runtime owns filesystem writes, process execution, and validation.
+Default repair limit: **2 attempts**.
+
+Run:
+
+```bash
+prompt-to-app "Build a simple habit tracker" --serve --max-repairs 2
+```
+
+Safety boundaries:
+- repair paths must be relative
+- `..` path traversal is rejected
+- repair attempts are bounded
+- filesystem writes stay inside the requested output directory
+
+The model provides reasoning, planning, code generation, and repair suggestions. The runtime owns filesystem writes, process execution, and validation.
+
+## CI
+
+GitHub Actions runs the Python test suite on pushes and pull requests to `main`.

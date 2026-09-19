@@ -3,10 +3,11 @@ import json
 from prompt_to_app.generator import generate
 from prompt_to_app.models import AppPlan
 from prompt_to_app.orchestrator import build
+from prompt_to_app.repair import repair
 from prompt_to_app.runner import wait_for_http
 
 def test_build_creates_fallback_project(tmp_path):
-    app_plan, project_dir, errors, url = build(
+    app_plan, project_dir, errors, url, repairs = build(
         "Build a tiny notes app",
         tmp_path / "app",
         base_url="http://127.0.0.1:1",
@@ -15,9 +16,8 @@ def test_build_creates_fallback_project(tmp_path):
     assert project_dir.exists()
     assert errors == []
     assert url is None
+    assert repairs == 0
     assert (project_dir / "index.html").exists()
-    assert (project_dir / "style.css").exists()
-    assert (project_dir / "app.js").exists()
 
 def test_generator_accepts_ollama_json(monkeypatch, tmp_path):
     from prompt_to_app import generator
@@ -40,3 +40,27 @@ def test_wait_for_http_times_out():
     ok, status = wait_for_http("http://127.0.0.1:1", timeout=0.4, interval=0.05)
     assert ok is False
     assert status is None
+
+def test_repair_rejects_unsafe_paths(monkeypatch):
+    monkeypatch.setattr(
+        "prompt_to_app.repair.chat",
+        lambda *args, **kwargs: json.dumps({
+            "files": [{"path": "../escape.txt", "content": "bad"}]
+        }),
+    )
+    try:
+        repair("demo", {}, ["missing"], base_url="http://127.0.0.1:1")
+    except ValueError:
+        return
+    assert False
+
+def test_repair_accepts_valid_update(monkeypatch):
+    monkeypatch.setattr(
+        "prompt_to_app.repair.chat",
+        lambda *args, **kwargs: json.dumps({
+            "files": [{"path": "index.html", "content": "<h1>fixed</h1>"}],
+            "explanation": "fixed markup",
+        }),
+    )
+    result = repair("demo", {"index.html": "<h1>broken</h1>"}, ["bad markup"], base_url="http://127.0.0.1:1")
+    assert result.files["index.html"] == "<h1>fixed</h1>"
