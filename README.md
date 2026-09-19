@@ -1,1 +1,31 @@
-# Prompt → App\n\nA chat-driven autonomous web-app builder.\n\n## Product flow\n\n```text\nUser prompt\n   ↓\nResearch current web/app patterns\n   ↓\nPlan\n   ↓\nCreate GitHub repository\n   ↓\nGenerate files directly into GitHub\n   ↓\nTest\n   ↓\nRepair + commit\n   ↓\nDeploy from GitHub to Vercel\n   ↓\nVerify live deployment\n   ↓\nReturn live URL in chat\n```\n\nExample:\n\n> Make a habit tracker for me by following current app trends respectively.\n\nThe system researches relevant public information first, then creates the application in a GitHub repository, iterates on the code, deploys it, verifies the live deployment, and returns the URL.\n\n## Production credential policy\n\nThe production orchestration uses connected tool access rather than embedding provider API keys in the application flow. Research uses connected Composio search/browser capabilities; GitHub uses the connected GitHub account; Vercel uses the connected Vercel account; and the host ChatGPT/agent performs reasoning/orchestration. No additional API key is required from the end user for this flow. Generated applications never receive GitHub or Vercel credentials.\n\n## Architecture\n\nExisting planner, generator, verifier, browser testing, repair, and deployment components remain reusable. The production workflow contract is defined in `src/prompt_to_app/workflow.py`.\n\nGitHub is the source of truth. Vercel deploys the committed repository.\n\n## Local development\n\nLocal Ollama support remains available for development and testing. It is not required by the production chat-driven flow.\n\n## Scope\n\nThe first production target is web applications: HTML/CSS/JavaScript and React/Next.js/Vercel-compatible projects. Arbitrary long-running Python, Java, or C++ backends require a separate sandbox/runtime layer and are outside the first milestone.\n
+Prompt → App
+
+A chat-driven autonomous web-app builder.
+
+## Product flow
+
+User prompt → research → plan → GitHub repository → generate → test → repair → Vercel deployment → live verification → URL.
+
+Example: “Make a habit tracker for me by following current app trends respectively.”
+
+## Production credential policy
+
+Production model calls use Vercel AI Gateway with the Vercel-hosted runtime identity. Vercel supports automatic OIDC authentication for deployed applications, so the production project does not need an AI Gateway API key or provider API key stored in source or environment variables.
+
+Research/orchestration uses connected ChatGPT/Composio capabilities. GitHub and Vercel use their connected accounts. Generated applications never receive those credentials.
+
+No additional API key is required in the production flow.
+
+## Architecture
+
+The existing planner, generator, verifier, browser testing, repair, and deployment components remain reusable. The production workflow contract is defined in src/prompt_to_app/workflow.py.
+
+GitHub is the source of truth. Vercel deploys the committed repository.
+
+## Local development
+
+Local Ollama support remains available. A legacy OpenAI-compatible environment-key adapter is retained only for local compatibility and is not used by the production Vercel flow.
+
+## Scope
+
+The first production target is web applications: HTML/CSS/JavaScript and React/Next.js/Vercel-compatible projects. Arbitrary long-running Python, Java, or C++ backends require a separate sandbox/runtime layer.
