@@ -32,6 +32,6 @@ def repair(description:str,current_files:dict[str,str],errors:list[str],model:st
     for name,content in updates.items():
         path=Path(str(name))
         if path.is_absolute() or ".." in path.parts:
-            raise ValueError(f"unsafe repair path: {name}")
+            raise RuntimeError(f"unsafe repair path: {name}")
         safe[str(path)]=str(content)
     return RepairResult(safe,str(data.get("explanation","")))
