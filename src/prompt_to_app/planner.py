@@ -2,6 +2,7 @@ import json
 from .models import AppPlan
 from .prompts import PLANNER_SYSTEM
 from .llm import LLM, OllamaLLM
+from .ollama import OllamaError
 
 ALLOWED_TESTS={"page_load","text_visible","click","text_visible_after_click"}
 
@@ -17,5 +18,5 @@ def plan(prompt:str,llm:LLM|None=None,model:str="qwen2.5-coder:7b",base_url:str=
         data=json.loads(engine.generate(PLANNER_SYSTEM,f"User request:\n{text}"))
         tests=[t for t in data.get("tests",[]) if isinstance(t,dict) and t.get("type") in ALLOWED_TESTS]
         return AppPlan(name=str(data.get("name","generated-app")),description=str(data.get("description",text)),stack=[str(x) for x in data.get("stack",["html","css","javascript"])],files=[str(x.get("path",x)) if isinstance(x,dict) else str(x) for x in data.get("files",[])],run_command=str(data.get("run_command","python -m http.server 8000")),tests=tests)
-    except (OSError,ValueError,KeyError,TypeError,json.JSONDecodeError):
+    except (OSError,OllamaError,ValueError,KeyError,TypeError,json.JSONDecodeError):
         return _fallback(text)

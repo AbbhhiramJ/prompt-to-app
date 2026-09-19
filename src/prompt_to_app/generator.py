@@ -1,8 +1,8 @@
 import json
 from pathlib import Path
 from .prompts import GENERATOR_SYSTEM
-from .ollama import chat
-from .llm import LLM, OllamaLLM
+from .ollama import chat, OllamaError
+from .llm import LLM
 from .models import AppPlan
 
 def _fallback_files(plan:AppPlan)->dict[str,str]:
@@ -18,7 +18,7 @@ def generate(plan:AppPlan,output_dir:str|Path,model:str="qwen2.5-coder:7b",base_
         else:
             raw=llm.generate(GENERATOR_SYSTEM,f"App name: {plan.name}\nDescription: {plan.description}\nStack: {plan.stack}\nRequested files: {plan.files}")
         data=json.loads(raw); files={str(x["path"]):str(x["content"]) for x in data["files"]}
-    except (OSError,ValueError,KeyError,TypeError,json.JSONDecodeError):
+    except (OSError,OllamaError,ValueError,KeyError,TypeError,json.JSONDecodeError):
         files=_fallback_files(plan)
     for name,content in files.items():
         path=root/name; path.parent.mkdir(parents=True,exist_ok=True); path.write_text(content,encoding="utf-8")
