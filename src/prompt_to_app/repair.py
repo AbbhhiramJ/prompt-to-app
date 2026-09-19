@@ -1,47 +1,55 @@
 import json
 from dataclasses import dataclass
+from pathlib import Path
+
 from .ollama import OllamaError, chat
+
+REPAIR_SYSTEM = """You are a repair engine for a generated web app.
+Return ONLY valid JSON:
+{"files": {"relative/path": "replacement file content"}, "explanation": "short explanation"}
+
+Fix the reported verification failures with the smallest necessary changes.
+Only return files that need replacement.
+Never use absolute paths or paths containing '..'.
+Do not rewrite unrelated files.
+"""
 
 @dataclass
 class RepairResult:
     files: dict[str, str]
-    explanation: str
-
-REPAIR_SYSTEM = """You are the repair engine for Prompt → App.
-A generated web application failed verification or runtime checks.
-Return ONLY valid JSON:
-{
-  "files": [
-    {"path": "relative/path", "content": "complete replacement content"}
-  ],
-  "explanation": "short description of the repair"
-}
-Only return files that need replacement. Preserve working files when possible.
-Never use absolute paths or paths containing '..'.
-"""
+    explanation: str = ""
 
 def repair(
-    project_description: str,
-    files: dict[str, str],
+    description: str,
+    current_files: dict[str, str],
     errors: list[str],
     model: str = "qwen2.5-coder:7b",
     base_url: str = "http://127.0.0.1:11434",
 ) -> RepairResult:
-    payload = {
-        "description": project_description,
-        "errors": errors,
-        "files": files,
-    }
-    raw = chat(
-        f"{REPAIR_SYSTEM}\n\nFailure report:\n{json.dumps(payload)}",
-        model=model,
-        base_url=base_url,
+    context = "\n\n".join(
+        f"FILE: {name}\n{content}" for name, content in current_files.items()
     )
-    data = json.loads(raw)
-    updates: dict[str, str] = {}
-    for item in data["files"]:
-        path = str(item["path"])
-        if path.startswith("/") or ".." in path.split("/"):
-            raise ValueError(f"unsafe repair path: {path}")
-        updates[path] = str(item["content"])
-    return RepairResult(updates, str(data.get("explanation", "Applied generated repair.")))
+    prompt = (
+        f"{REPAIR_SYSTEM}\n\n"
+        f"APP:\n{description}\n\n"
+        f"VERIFICATION FAILURES:\n- " + "\n- ".join(errors) +
+        f"\n\nCURRENT FILES:\n{context}"
+    )
+    try:
+        raw = chat(prompt, model=model, base_url=base_url)
+        data = json.loads(raw)
+    except (OllamaError, json.JSONDecodeError, TypeError, ValueError) as exc:
+        raise RuntimeError(f"repair generation failed: {exc}") from exc
+
+    updates = data.get("files", {})
+    if not isinstance(updates, dict):
+        raise RuntimeError("repair response files must be an object")
+
+    safe: dict[str, str] = {}
+    for relative_path, content in updates.items():
+        path = Path(str(relative_path))
+        if path.is_absolute() or ".." in path.parts:
+            raise RuntimeError(f"unsafe repair path: {relative_path}")
+        safe[str(path)] = str(content)
+
+    return RepairResult(safe, str(data.get("explanation", "")))

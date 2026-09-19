@@ -8,13 +8,11 @@ class BrowserCheckUnavailable(RuntimeError):
 
 def check(project_dir: str | Path, url: str, tests: list[dict] | None = None, timeout: int = 30) -> list[str]:
     tests = tests or [{"type": "page_load"}]
-    safe_tests = []
-    for test in tests:
-        if not isinstance(test, dict):
-            continue
-        kind = test.get("type")
-        if kind in {"page_load", "text_visible", "click", "text_visible_after_click"}:
-            safe_tests.append(test)
+    safe_tests = [
+        t for t in tests
+        if isinstance(t, dict)
+        and t.get("type") in {"page_load", "text_visible", "click", "text_visible_after_click"}
+    ]
 
     script = """
 import asyncio
@@ -30,25 +28,29 @@ async def main(url, tests):
         page.on("pageerror", lambda exc: errors.append(f"page error: {exc}"))
         response = await page.goto(url, wait_until="networkidle")
         if response is None or response.status >= 400:
-            errors.append(f"page returned HTTP {response.status if response else 'no response'}")
-        for test in tests:
+            errors.append(f"TEST page_load FAILED: HTTP {response.status if response else 'no response'}")
+
+        for index, test in enumerate(tests, 1):
             kind = test.get("type")
             try:
                 if kind == "page_load":
                     continue
                 if kind == "text_visible":
                     text = str(test.get("text", ""))
-                    if not text or not await page.get_by_text(text, exact=False).first.is_visible():
-                        errors.append(f"text not visible: {text}")
+                    locator = page.get_by_text(text, exact=False).first
+                    if not text or not await locator.is_visible():
+                        errors.append(f"TEST {index} text_visible FAILED: text={text!r}")
                 elif kind == "click":
                     selector = str(test.get("selector", ""))
                     await page.locator(selector).first.click(timeout=3000)
                 elif kind == "text_visible_after_click":
                     text = str(test.get("text", ""))
-                    if not text or not await page.get_by_text(text, exact=False).first.is_visible():
-                        errors.append(f"text not visible after click: {text}")
+                    locator = page.get_by_text(text, exact=False).first
+                    if not text or not await locator.is_visible():
+                        errors.append(f"TEST {index} text_visible_after_click FAILED: text={text!r}")
             except Exception as exc:
-                errors.append(f"{kind} failed: {exc}")
+                errors.append(f"TEST {index} {kind} FAILED: {exc}")
+
         await browser.close()
         return errors
 
@@ -68,6 +70,7 @@ if errors:
         )
     except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
         raise BrowserCheckUnavailable(str(exc)) from exc
+
     if result.returncode != 0:
         try:
             return json.loads(result.stdout or "[]")

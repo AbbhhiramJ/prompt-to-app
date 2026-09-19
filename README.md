@@ -2,16 +2,18 @@
 
 Natural-language application builder: describe an app, then let the orchestrator plan, generate, run, test, and repair it.
 
-## v0.6 — generated interaction tests
+## v0.7 — test-aware repair
 
-The planner now creates a small, constrained browser test plan alongside the app plan. The test runner supports:
+The repair engine now receives structured browser failures such as:
 
-- page load
-- text visibility
-- clicking a safe selector
-- text visibility after an interaction
+```
+TEST 2 click FAILED: selector=#add
+TEST 3 text_visible_after_click FAILED: text='Habit added'
+```
 
-Browser failures are returned to the same bounded verification/repair pipeline.
+This keeps repairs targeted instead of giving the model vague browser errors.
+
+The system still uses a small bounded repair loop; it does not attempt unrestricted autonomous debugging.
 
 ### Run
 
@@ -24,28 +26,24 @@ playwright install chromium
 prompt-to-app "Build a simple habit tracker" --serve --browser
 ```
 
-Browser verification remains optional for the core package.
-
-## Architecture
+## Pipeline
 
 ```
 Prompt
-  ↓
-Planner → AppPlan + constrained tests
-  ↓
+ ↓
+Planner → AppPlan + tests
+ ↓
 Generator → App
-  ↓
-Static Verifier
-  ↓
-Bounded Repair
-  ↓
-Runner
-  ↓
-HTTP verification
-  ↓
+ ↓
+Static verification
+ ↓
+Run + HTTP check
+ ↓
 Playwright interaction tests
-  ↓
-Failure feedback → Repair
+ ↓
+Structured failure
+ ↓
+Targeted repair
+ ↓
+Retest (bounded)
 ```
-
-The runtime controls filesystem writes and browser actions. Generated tests are deliberately limited to a small safe action vocabulary.
