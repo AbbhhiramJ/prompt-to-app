@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from .ollama import chat
 from .llm import LLM
-
 REPAIR_SYSTEM="""You are a repair engine for a generated web app.
 Return ONLY valid JSON:
 {"files":{"relative/path":"replacement file content"},"explanation":"short explanation"}
@@ -28,6 +27,6 @@ def repair(description:str,current_files:dict[str,str],errors:list[str],model:st
     safe={}
     for name,content in updates.items():
         path=Path(str(name))
-        if path.is_absolute() or ".." in path.parts: raise RuntimeError(f"unsafe repair path: {name}")
+        if path.is_absolute() or ".." in path.parts: raise ValueError(f"unsafe repair path: {name}")
         safe[str(path)]=str(content)
     return RepairResult(safe,str(data.get("explanation","")))
