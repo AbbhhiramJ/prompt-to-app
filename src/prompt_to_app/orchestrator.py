@@ -7,16 +7,15 @@ from .repair import repair
 from .runner import start, wait_for_http
 from .verifier import verify
 
-def _read_files(root: Path) -> dict[str, str]:
+def _files(root: Path) -> dict[str, str]:
     return {
-        str(path.relative_to(root)): path.read_text(encoding="utf-8")
-        for path in root.rglob("*")
-        if path.is_file() and ".git" not in path.parts
+        str(p.relative_to(root)): p.read_text(encoding="utf-8")
+        for p in root.rglob("*") if p.is_file() and ".git" not in p.parts
     }
 
-def _apply_updates(root: Path, updates: dict[str, str]) -> None:
-    for relative_path, content in updates.items():
-        path = root / relative_path
+def _write(root: Path, updates: dict[str, str]) -> None:
+    for name, content in updates.items():
+        path = root / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
 
@@ -33,48 +32,37 @@ def build(
     if max_repairs < 0:
         raise ValueError("max_repairs must be >= 0")
 
-    app_plan = plan(prompt, model=model, base_url=base_url)
-    project_dir = generate(app_plan, output_dir, model=model, base_url=base_url)
+    app = plan(prompt, model, base_url)
+    root = generate(app, output_dir, model, base_url)
     url = None
+    errors = verify(root)
     repairs = 0
-    errors = verify(project_dir)
 
     while True:
         if not errors and serve:
-            process = start(f"python -m http.server {port}", project_dir)
+            process = start(f"python -m http.server {port}", root)
             url = f"http://127.0.0.1:{port}"
             ok, status = wait_for_http(url)
-            if not ok:
-                errors = [f"generated app did not become reachable at {url}"]
-            elif status != 200:
-                errors = [f"generated app returned HTTP {status}"]
-            elif browser:
+            errors = [] if ok and status == 200 else [
+                f"generated app did not become reachable at {url}" if not ok
+                else f"generated app returned HTTP {status}"
+            ]
+            if not errors and browser:
                 try:
-                    errors = browser_check(project_dir, url, app_plan.tests)
-                except BrowserCheckUnavailable:
-                    errors = ["browser verification requested but Playwright is unavailable"]
-            else:
-                errors = []
+                    errors = browser_check(root, url, app.tests)
+                except BrowserCheckUnavailable as exc:
+                    errors = [f"browser verification unavailable: {exc}"]
             process.terminate()
 
-        if not errors:
-            break
-        if repairs >= max_repairs:
+        if not errors or repairs >= max_repairs:
             break
 
         try:
-            result = repair(
-                app_plan.description,
-                _read_files(project_dir),
-                errors,
-                model=model,
-                base_url=base_url,
-            )
+            result = repair(app.description, _files(root), errors, model, base_url)
         except Exception:
             break
-
-        _apply_updates(project_dir, result.files)
+        _write(root, result.files)
         repairs += 1
-        errors = verify(project_dir)
+        errors = verify(root)
 
-    return app_plan, project_dir, errors, url, repairs
+    return app, root, errors, url, repairs
