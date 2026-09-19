@@ -2,38 +2,35 @@
 
 Natural-language application builder: describe an app, then let the orchestrator plan, generate, run, test, and iteratively repair it.
 
-## v0.1
+## v0.3
 
-The MVP now has an Ollama-backed planning and generation path with a deterministic fallback:
+The MVP now includes:
 
-1. Accept a natural-language app request.
-2. Ask a local Ollama model for a structured build plan.
-3. Ask the model to generate the app files.
-4. Write the generated files into an isolated output directory.
-5. Verify the minimum project structure.
-6. Fall back to a known-good browser app if Ollama is unavailable or returns invalid JSON.
+1. Natural-language prompt
+2. Ollama-backed planning
+3. Ollama-backed code generation
+4. Deterministic fallback generation
+5. Filesystem verification
+6. Optional local app execution
+7. HTTP reachability verification
 
-Default local model: `qwen2.5-coder:7b`
-
-Default Ollama endpoint: `http://127.0.0.1:11434`
-
-## Run
+### Run
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -e '.[dev]'
-prompt-to-app "Build a simple habit tracker"
+
+prompt-to-app "Build a simple habit tracker" --serve
 ```
 
-Then serve the generated app:
+If verification passes, the generated app is served at:
 
-```bash
-cd generated-app
-python -m http.server 8000
+```
+http://127.0.0.1:8000
 ```
 
-Open `http://127.0.0.1:8000`.
+Use `--port` to select another port.
 
 ## Architecture
 
@@ -49,6 +46,12 @@ Generator ────→ Ollama
 Generated files
   ↓
 Verifier
+  ↓
+Runner ────────→ local process
+  ↓
+HTTP probe
+  ↓
+Working app
 ```
 
-The model provides reasoning and code generation. The runtime owns filesystem writes and validation.
+The model provides reasoning and code generation. The runtime owns filesystem writes, process execution, and validation.
