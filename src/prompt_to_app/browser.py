@@ -22,9 +22,13 @@ def check(project_dir: str | Path, url: str, tests: list[dict] | None = None, ti
             response = page.goto(url, wait_until="networkidle", timeout=timeout * 1000)
 
             if not response or response.status >= 400:
-                errors.append(f"TEST page_load FAILED: HTTP {response.status if response else 'no response'}")
+                errors.append(
+                    f"TEST page_load FAILED: HTTP {response.status if response else 'no response'}"
+                )
 
-            for i, test in enumerate(t for t in tests if isinstance(t, dict) and t.get("type") in allowed, 1):
+            for i, test in enumerate(
+                (t for t in tests if isinstance(t, dict) and t.get("type") in allowed), 1
+            ):
                 kind = test["type"]
                 try:
                     if kind == "text_visible":
