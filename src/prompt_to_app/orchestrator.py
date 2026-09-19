@@ -35,32 +35,46 @@ def build(
 
     app_plan = plan(prompt, model=model, base_url=base_url)
     project_dir = generate(app_plan, output_dir, model=model, base_url=base_url)
-    errors = verify(project_dir)
     url = None
     repairs = 0
+    errors = verify(project_dir)
 
-    while errors and repairs < max_repairs:
+    while True:
+        if not errors and serve:
+            process = start(f"python -m http.server {port}", project_dir)
+            url = f"http://127.0.0.1:{port}"
+            ok, status = wait_for_http(url)
+            if not ok:
+                errors = [f"generated app did not become reachable at {url}"]
+            elif status != 200:
+                errors = [f"generated app returned HTTP {status}"]
+            elif browser:
+                try:
+                    errors = browser_check(project_dir, url, app_plan.tests)
+                except BrowserCheckUnavailable:
+                    errors = ["browser verification requested but Playwright is unavailable"]
+            else:
+                errors = []
+            process.terminate()
+
+        if not errors:
+            break
+        if repairs >= max_repairs:
+            break
+
         try:
-            result = repair(app_plan.description, _read_files(project_dir), errors, model=model, base_url=base_url)
+            result = repair(
+                app_plan.description,
+                _read_files(project_dir),
+                errors,
+                model=model,
+                base_url=base_url,
+            )
         except Exception:
             break
+
         _apply_updates(project_dir, result.files)
         repairs += 1
         errors = verify(project_dir)
-
-    if not errors and serve:
-        process = start(f"python -m http.server {port}", project_dir)
-        url = f"http://127.0.0.1:{port}"
-        ok, status = wait_for_http(url)
-        if not ok:
-            errors.append(f"generated app did not become reachable at {url}")
-        elif status != 200:
-            errors.append(f"generated app returned HTTP {status}")
-        elif browser:
-            try:
-                errors.extend(browser_check(project_dir, url, app_plan.tests))
-            except BrowserCheckUnavailable:
-                errors.append("browser verification requested but Playwright is unavailable")
-        process.terminate()
 
     return app_plan, project_dir, errors, url, repairs
