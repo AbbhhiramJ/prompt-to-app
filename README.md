@@ -2,16 +2,16 @@
 
 Natural-language application builder: describe an app, then let the orchestrator plan, generate, run, test, and repair it.
 
-## v0.5 — functional verification
+## v0.6 — generated interaction tests
 
-The pipeline now verifies more than file existence:
+The planner now creates a small, constrained browser test plan alongside the app plan. The test runner supports:
 
-- HTML document structure
-- JavaScript entrypoint wiring
-- non-empty JavaScript
-- HTTP reachability
-- optional headless browser smoke testing with Playwright
-- automatic repair when static verification fails
+- page load
+- text visibility
+- clicking a safe selector
+- text visibility after an interaction
+
+Browser failures are returned to the same bounded verification/repair pipeline.
 
 ### Run
 
@@ -24,28 +24,28 @@ playwright install chromium
 prompt-to-app "Build a simple habit tracker" --serve --browser
 ```
 
-The generated app is served locally and opened by a headless Chromium smoke test.
-
-Browser verification is optional so the core runtime does not require Chromium.
+Browser verification remains optional for the core package.
 
 ## Architecture
 
 ```
 Prompt
   ↓
-Planner → Ollama
+Planner → AppPlan + constrained tests
   ↓
-Generator → Ollama
+Generator → App
   ↓
 Static Verifier
   ↓
-Repair Engine (bounded)
+Bounded Repair
   ↓
 Runner
   ↓
 HTTP verification
   ↓
-Optional Playwright browser verification
+Playwright interaction tests
+  ↓
+Failure feedback → Repair
 ```
 
-The model provides reasoning, planning, generation, and repair suggestions. The runtime owns filesystem writes, process execution, and verification.
+The runtime controls filesystem writes and browser actions. Generated tests are deliberately limited to a small safe action vocabulary.

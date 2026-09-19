@@ -54,17 +54,13 @@ def build(
         ok, status = wait_for_http(url)
         if not ok:
             errors.append(f"generated app did not become reachable at {url}")
-            process.terminate()
         elif status != 200:
             errors.append(f"generated app returned HTTP {status}")
-            process.terminate()
         elif browser:
             try:
-                errors.extend(browser_check(project_dir, url))
+                errors.extend(browser_check(project_dir, url, app_plan.tests))
             except BrowserCheckUnavailable:
                 errors.append("browser verification requested but Playwright is unavailable")
-
-        if errors:
-            process.terminate()
+        process.terminate()
 
     return app_plan, project_dir, errors, url, repairs
