@@ -1,1 +1,24 @@
-[build-system]\nrequires = ["setuptools>=68"]\nbuild-backend = "setuptools.build_meta"\n\n[project]\nname = "prompt-to-app"\nversion = "1.0.0"\ndescription = "Chat-driven autonomous Prompt → GitHub → Vercel application builder"\nreadme = "README.md"\nrequires-python = ">=3.10"\ndependencies = ["fastapi>=0.141.1", "pydantic>=2.0"]\n\n[project.optional-dependencies]\ndev = ["pytest>=8.0", "httpx>=0.1"]\nbrowser = ["playwright>=1.50"]\n\n[project.scripts]\nprompt-to-app = "prompt_to_app.cli:main"\n\n[tool.setuptools.packages.find]\nwhere = ["src"]\n\n[tool.pytest.ini_options]\ntestpaths = ["tests"]\n
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "prompt-to-app"
+version = "1.0.0"
+description = "Chat-driven autonomous Prompt -> GitHub -> Vercel application builder"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["fastapi>=0.141.1", "pydantic>=2.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "httpx>=0.1"]
+browser = ["playwright>=1.50"]
+
+[project.scripts]
+prompt-to-app = "prompt_to_app.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
