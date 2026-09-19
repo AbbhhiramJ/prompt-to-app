@@ -1,27 +1,44 @@
 # Prompt → App
 
-Natural-language application builder: describe an app, then let the orchestrator plan, generate, verify, repair, and deploy it.
+Describe a web app in natural language and receive a deployed URL.
 
-## v0.8.1 — cloud LLM
+## Product flow
 
-The production path can use Gemini 2.5 Flash through GEMINI_API_KEY. Local Ollama remains available for development.
+Prompt → cloud LLM → plan → generate → verify/repair → Vercel URL
 
-Set GEMINI_API_KEY and VERCEL_TOKEN in the deployment environment, then run:
+The browser interface is served from the repository root. The /api/build endpoint performs the build.
 
-    prompt-to-app "Build a simple habit tracker" --cloud
+## Production environment
 
-The cloud path is:
+Set these secrets in the deployment environment:
 
-    Prompt → Gemini → Plan → Generate → Verify/Repair → Vercel → URL
+- LLM_API_KEY
+- LLM_MODEL (default: gpt-4.1-mini)
+- LLM_BASE_URL (default: https://api.openai.com/v1)
+- VERCEL_TOKEN
 
-No API keys are stored in the repository.
+The LLM adapter is OpenAI-compatible, so the service can use any compatible provider by changing LLM_BASE_URL and LLM_MODEL.
 
 ## Local development
 
-    python -m venv .venv
-    source .venv/bin/activate
-    pip install -e '.[dev,browser]'
-    playwright install chromium
-    prompt-to-app "Build a simple habit tracker" --serve --browser
+python -m venv .venv
+source .venv/bin/activate
+pip install -e '.[dev,browser]'
+playwright install chromium
+prompt-to-app "Build a simple habit tracker" --serve --browser
 
-The current cloud milestone targets web applications first. Arbitrary Python, Java, C++, or long-running server workloads require a separate sandbox/runtime layer.
+Local Ollama remains supported for development.
+
+## API
+
+GET /api/health
+
+POST /api/build
+
+Request: {"prompt":"Build a simple habit tracker"}
+
+Response: {"name":"habit-tracker","status":"ready","url":"https://...","repairs":0}
+
+## Scope
+
+The first production target is browser-based web apps. Arbitrary long-running Python, Java, or C++ backends require a separate sandbox/runtime layer.
