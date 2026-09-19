@@ -1,57 +1,31 @@
 from pathlib import Path
-from .browser import BrowserCheckUnavailable, check as browser_check
-from .generator import generate
-from .models import AppPlan
 from .planner import plan
-from .repair import repair
-from .runner import start, wait_for_http
+from .generator import generate
 from .verifier import verify
+from .runner import serve_and_check
+from .browser import run_browser_tests
+from .repair import repair
 from .llm import LLM
 
-def _files(root: Path) -> dict[str, str]:
-    return {str(p.relative_to(root)): p.read_text(encoding="utf-8") for p in root.rglob("*") if p.is_file() and ".git" not in p.parts}
-
-def _write(root: Path, updates: dict[str, str]) -> None:
-    for name, content in updates.items():
-        path = root / name
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content, encoding="utf-8")
-
-def build(prompt: str, output_dir: str | Path = "./generated-app", model: str = "qwen2.5-coder:7b",
-          base_url: str = "http://127.0.0.1:11434", serve: bool = False, port: int = 8000,
-          max_repairs: int = 2, browser: bool = False, llm: LLM | None = None
-          ) -> tuple[AppPlan, Path, list[str], str | None, int]:
-    if not prompt.strip():
-        raise ValueError("Prompt cannot be empty")
-    if max_repairs < 0:
-        raise ValueError("max_repairs must be >= 0")
-    app = plan(prompt, model, base_url, llm=llm)
-    root = generate(app, output_dir, model, base_url, llm=llm)
+def build(prompt: str, output_dir: str | Path="./generated-app", model: str="qwen2.5-coder:7b",
+          base_url: str="http://127.0.0.1:11434", serve: bool=False, port: int=8000,
+          max_repairs: int=2, browser: bool=False, llm: LLM|None=None):
+    if not prompt.strip(): raise ValueError("Prompt cannot be empty")
+    if max_repairs < 0: raise ValueError("max_repairs must be >= 0")
+    app = plan(prompt, model=model, base_url=base_url, llm=llm)
+    project_dir = generate(app, output_dir, model=model, base_url=base_url, llm=llm)
+    errors = verify(project_dir, app.files)
     url = None
-    errors = verify(root)
+    if serve and not errors:
+        url = serve_and_check(project_dir, port)
+    if browser and not errors and url:
+        errors.extend(run_browser_tests(url, app.tests))
     repairs = 0
-    while True:
-        if not errors and serve:
-            process = start(f"python -m http.server {port}", root)
-            url = f"http://127.0.0.1:{port}"
-            try:
-                ok, status = wait_for_http(url)
-                if not ok or status != 200:
-                    errors = [f"generated app did not become reachable at {url}" if not ok else f"generated app returned HTTP {status}"]
-                elif browser:
-                    try:
-                        errors = browser_check(root, url, app.tests)
-                    except BrowserCheckUnavailable as exc:
-                        errors = [f"browser verification unavailable: {exc}"]
-            finally:
-                process.terminate()
-        if not errors or repairs >= max_repairs:
-            break
-        try:
-            result = repair(app.description, _files(root), errors, model, base_url, llm=llm)
-        except Exception:
-            break
-        _write(root, result.files)
+    while errors and repairs < max_repairs:
+        current={str(p.relative_to(project_dir)):p.read_text(encoding="utf-8") for p in project_dir.rglob("*") if p.is_file()}
+        result=repair(app.description,current,errors,model=model,base_url=base_url,llm=llm)
+        for name,content in result.files.items():
+            path=project_dir/name; path.parent.mkdir(parents=True,exist_ok=True); path.write_text(content,encoding="utf-8")
+        errors=verify(project_dir,app.files)
         repairs += 1
-        errors = verify(root)
-    return app, root, errors, url, repairs
+    return app, project_dir, errors, url, repairs

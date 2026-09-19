@@ -1,8 +1,9 @@
 import json
 from pathlib import Path
-from .models import AppPlan
 from .prompts import GENERATOR_SYSTEM
+from .ollama import chat
 from .llm import LLM, OllamaLLM
+from .models import AppPlan
 
 def _fallback_files(plan:AppPlan)->dict[str,str]:
     if plan.name=="habit-tracker":
