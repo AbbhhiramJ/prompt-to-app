@@ -1,4 +1,5 @@
 from pathlib import Path
+from .browser import BrowserCheckUnavailable, check as browser_check
 from .generator import generate
 from .models import AppPlan
 from .planner import plan
@@ -27,6 +28,7 @@ def build(
     serve: bool = False,
     port: int = 8000,
     max_repairs: int = 2,
+    browser: bool = False,
 ) -> tuple[AppPlan, Path, list[str], str | None, int]:
     if max_repairs < 0:
         raise ValueError("max_repairs must be >= 0")
@@ -39,13 +41,7 @@ def build(
 
     while errors and repairs < max_repairs:
         try:
-            result = repair(
-                app_plan.description,
-                _read_files(project_dir),
-                errors,
-                model=model,
-                base_url=base_url,
-            )
+            result = repair(app_plan.description, _read_files(project_dir), errors, model=model, base_url=base_url)
         except Exception:
             break
         _apply_updates(project_dir, result.files)
@@ -61,6 +57,14 @@ def build(
             process.terminate()
         elif status != 200:
             errors.append(f"generated app returned HTTP {status}")
+            process.terminate()
+        elif browser:
+            try:
+                errors.extend(browser_check(project_dir, url))
+            except BrowserCheckUnavailable:
+                errors.append("browser verification requested but Playwright is unavailable")
+
+        if errors:
             process.terminate()
 
     return app_plan, project_dir, errors, url, repairs
