@@ -9,32 +9,24 @@ Return ONLY valid JSON:
 {"files":{"relative/path":"replacement file content"},"explanation":"short explanation"}
 Fix reported failures with the smallest necessary changes. Only return files that need replacement. Never use absolute paths or '..'. Do not rewrite unrelated files.
 """
-
-class UnsafeRepairPathError(ValueError, RuntimeError):
-    """Raised when a repair attempts to write outside the generated app."""
-
+class UnsafeRepairPathError(ValueError, RuntimeError): pass
 @dataclass
 class RepairResult:
     files:dict[str,str]
     explanation:str=""
-
 def repair(description:str,current_files:dict[str,str],errors:list[str],model:str="qwen2.5-coder:7b",base_url:str="http://127.0.0.1:11434",llm:LLM|None=None)->RepairResult:
     files="\n\n".join(f"FILE: {n}\n{c}" for n,c in current_files.items())
     prompt=f"{REPAIR_SYSTEM}\n\nAPP:\n{description}\n\nFAILURES:\n- {'\n- '.join(errors)}\n\nCURRENT FILES:\n{files}"
     try:
         raw=llm.generate(REPAIR_SYSTEM,prompt) if llm else chat(prompt,model,base_url)
         data=json.loads(raw)
-    except Exception as exc:
-        raise RuntimeError(f"repair generation failed: {exc}") from exc
+    except Exception as exc: raise RuntimeError(f"repair generation failed: {exc}") from exc
     updates=data.get("files",{})
-    if isinstance(updates,list):
-        updates={str(item["path"]):str(item["content"]) for item in updates if isinstance(item,dict) and "path" in item and "content" in item}
-    if not isinstance(updates,dict):
-        raise RuntimeError("repair response files must be an object or list")
+    if isinstance(updates,list): updates={str(i["path"]):str(i["content"]) for i in updates if isinstance(i,dict) and "path" in i and "content" in i}
+    if not isinstance(updates,dict): raise RuntimeError("repair response files must be an object or list")
     safe={}
     for name,content in updates.items():
         path=Path(str(name))
-        if path.is_absolute() or ".." in path.parts:
-            raise UnsafeRepairPathError(f"unsafe repair path: {name}")
+        if path.is_absolute() or ".." in path.parts: raise UnsafeRepairPathError(f"unsafe repair path: {name}")
         safe[str(path)]=str(content)
     return RepairResult(safe,str(data.get("explanation","")))
