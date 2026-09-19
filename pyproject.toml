@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "prompt-to-app"
-version = "0.8.1"
+version = "0.8.2"
 description = "Natural-language Prompt → App orchestrator"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = []
+dependencies = ["fastapi>=0.141.1", "pydantic>=2.0"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
