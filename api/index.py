@@ -2,7 +2,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from prompt_to_app.llm import CloudLLMError, GeminiLLM
+from prompt_to_app.llm import OpenAICompatibleLLM, cloud_llm_from_env
 from prompt_to_app.orchestrator import build
 from prompt_to_app.vercel import VercelError, deploy
 
@@ -21,7 +21,7 @@ def build_app(request: BuildRequest):
     if not request.prompt.strip():
         raise HTTPException(status_code=400, detail="prompt cannot be empty")
     try:
-        llm = GeminiLLM()
+        llm = cloud_llm_from_env()
         with TemporaryDirectory() as temp_dir:
             plan, project_dir, errors, _, repairs = build(
                 request.prompt, output_dir=Path(temp_dir) / "app", max_repairs=2, llm=llm
@@ -34,7 +34,7 @@ def build_app(request: BuildRequest):
         return {"name": plan.name, "status": "ready", "url": url, "repairs": repairs}
     except HTTPException:
         raise
-    except CloudLLMError as exc:
+    except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     except VercelError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
