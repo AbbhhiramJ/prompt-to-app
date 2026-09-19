@@ -1,0 +1,1 @@
+Build a tiny notes app with a clean browser UI and local persistence.
