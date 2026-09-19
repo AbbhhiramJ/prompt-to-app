@@ -3,6 +3,8 @@ from .models import AppPlan
 from .ollama import OllamaError, chat
 from .prompts import PLANNER_SYSTEM
 
+ALLOWED_TESTS = {"page_load", "text_visible", "click", "text_visible_after_click"}
+
 def _fallback(prompt: str) -> AppPlan:
     return AppPlan(
         name="generated-app",
@@ -18,11 +20,8 @@ def plan(prompt: str, model: str = "qwen2.5-coder:7b", base_url: str = "http://1
     if not text:
         raise ValueError("Prompt cannot be empty")
     try:
-        raw = chat(f"{PLANNER_SYSTEM}\n\nUser request:\n{text}", model=model, base_url=base_url)
-        data = json.loads(raw)
-        tests = data.get("tests", [])
-        allowed = {"page_load", "text_visible", "click", "text_visible_after_click"}
-        tests = [t for t in tests if isinstance(t, dict) and t.get("type") in allowed]
+        data = json.loads(chat(f"{PLANNER_SYSTEM}\n\nUser request:\n{text}", model, base_url))
+        tests = [t for t in data.get("tests", []) if isinstance(t, dict) and t.get("type") in ALLOWED_TESTS]
         return AppPlan(
             name=str(data.get("name", "generated-app")),
             description=str(data.get("description", text)),
