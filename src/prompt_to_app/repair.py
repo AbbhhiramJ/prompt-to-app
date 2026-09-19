@@ -10,6 +10,9 @@ Return ONLY valid JSON:
 Fix reported failures with the smallest necessary changes. Only return files that need replacement. Never use absolute paths or '..'. Do not rewrite unrelated files.
 """
 
+class UnsafeRepairPathError(ValueError, RuntimeError):
+    """Raised when a repair attempts to write outside the generated app."""
+
 @dataclass
 class RepairResult:
     files:dict[str,str]
@@ -32,6 +35,6 @@ def repair(description:str,current_files:dict[str,str],errors:list[str],model:st
     for name,content in updates.items():
         path=Path(str(name))
         if path.is_absolute() or ".." in path.parts:
-            raise RuntimeError(f"unsafe repair path: {name}")
+            raise UnsafeRepairPathError(f"unsafe repair path: {name}")
         safe[str(path)]=str(content)
     return RepairResult(safe,str(data.get("explanation","")))
