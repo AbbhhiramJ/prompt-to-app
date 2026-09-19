@@ -1,31 +1,31 @@
-# Production Prompt → App Flow
+# Agent execution contract
 
-The production product is a chat-driven autonomous builder.
+The product is ChatGPT/agent -> research -> GitHub -> Vercel -> URL.
 
-## Runtime
+## Runtime flow
+1. Accept the user's natural-language app request.
+2. Research current public web/app information when the prompt asks for trends or current patterns.
+3. Create a concise implementation plan.
+4. Create a GitHub repository using the connected GitHub account.
+5. Generate project files in the agent runtime.
+6. Validate paths and run tests.
+7. Repair affected files and retest, with a bounded retry count.
+8. Commit the final files to GitHub.
+9. Deploy the repository/commit to the connected Vercel account.
+10. Poll until the deployment is ready.
+11. Verify the live URL.
+12. Return the repository URL and verified live URL in the same chat.
 
-The deployed API runs on Vercel. Model calls use Vercel AI Gateway with the automatically supplied Vercel OIDC identity. No provider API key is placed in the project.
+## Credential boundary
+No generated app should contain GitHub tokens, Vercel tokens, model/provider API keys, or Composio credentials. The agent/host owns those connections.
 
-## Execution
+## Free-first policy
+The first implementation target is ₹0 in additional user-supplied credentials or paid provider subscriptions. GitHub Free and Vercel Hobby are used through already-connected accounts. Optional model/provider usage is a separate cost decision.
 
-1. Research current public web/app information.
-2. Plan the application.
-3. Create a GitHub repository using the connected GitHub account.
-4. Generate project files and commit them to GitHub.
-5. Test the generated project.
-6. Repair failures and commit corrections.
-7. Deploy the committed repository to Vercel.
-8. Verify the live deployment.
-9. Return the verified URL.
+## Repository as source of truth
+GitHub contains the generated application and its commit history. Vercel deploys the committed repository. A URL is reported as successful only after verification.
 
-## Credential rule
+## What this repository provides
+src/prompt_to_app/workflow.py defines the provider-neutral execution contract and safety checks. The connected agent supplies research, planning, generation, GitHub, Vercel, and browser capabilities.
 
-No provider API key is included in this production flow. Runtime authentication uses Vercel platform OIDC for AI Gateway plus the already-connected GitHub and Vercel accounts for repository and deployment operations.
-
-## Cost rule
-
-No additional API-key dependency is introduced. Model usage can still incur provider/Vercel charges according to the selected model and account terms; no-key authentication does not imply universally free inference.
-
-## Failure policy
-
-Capture failures, repair only affected files, commit, re-test, and stop after a bounded number of attempts. Only a verified live URL is reported as successful.
+The older local Ollama path remains available for development and tests; it is not required by the production agent flow.

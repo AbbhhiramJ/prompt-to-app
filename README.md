@@ -1,31 +1,29 @@
-Prompt → App
+# Prompt -> App
 
 A chat-driven autonomous web-app builder.
 
-## Product flow
+## The actual product
+You type:
 
-User prompt → research → plan → GitHub repository → generate → test → repair → Vercel deployment → live verification → URL.
+Make a habit tracker for me by following the current app trends.
 
-Example: “Make a habit tracker for me by following current app trends respectively.”
+The connected agent then:
 
-## Production credential policy
+research -> plan -> GitHub repo -> generate files -> test -> repair -> commit -> Vercel deploy -> verify -> return URL
 
-Production model calls use Vercel AI Gateway with the Vercel-hosted runtime identity. Vercel supports automatic OIDC authentication for deployed applications, so the production project does not need an AI Gateway API key or provider API key stored in source or environment variables.
-
-Research/orchestration uses connected ChatGPT/Composio capabilities. GitHub and Vercel use their connected accounts. Generated applications never receive those credentials.
-
-No additional API key is required in the production flow.
+The generated application does not need GitHub, Vercel, Composio, or model API keys.
 
 ## Architecture
-
-The existing planner, generator, verifier, browser testing, repair, and deployment components remain reusable. The production workflow contract is defined in src/prompt_to_app/workflow.py.
+The host agent owns reasoning and connected-tool authentication. This repository contains the reusable workflow contract and local development implementation.
 
 GitHub is the source of truth. Vercel deploys the committed repository.
 
+## Credentials
+The production workflow does not require the user to paste API keys into the generated application or into this repository.
+
+The first target is ₹0 in additional user-supplied credentials or paid provider subscriptions. Existing connected GitHub/Vercel access is used.
+
 ## Local development
+Local Ollama support remains available for development. It is not required for the production chat workflow.
 
-Local Ollama support remains available. A legacy OpenAI-compatible environment-key adapter is retained only for local compatibility and is not used by the production Vercel flow.
-
-## Scope
-
-The first production target is web applications: HTML/CSS/JavaScript and React/Next.js/Vercel-compatible projects. Arbitrary long-running Python, Java, or C++ backends require a separate sandbox/runtime layer.
+See docs/production-flow.md for the execution contract.
