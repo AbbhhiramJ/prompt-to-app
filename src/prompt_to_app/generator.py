@@ -13,8 +13,10 @@ def _fallback_files(plan:AppPlan)->dict[str,str]:
 def generate(plan:AppPlan,output_dir:str|Path,model:str="qwen2.5-coder:7b",base_url:str="http://127.0.0.1:11434",llm:LLM|None=None)->Path:
     root=Path(output_dir); root.mkdir(parents=True,exist_ok=True)
     try:
-        engine=llm or OllamaLLM(model,base_url)
-        raw=engine.generate(GENERATOR_SYSTEM,f"App name: {plan.name}\nDescription: {plan.description}\nStack: {plan.stack}\nRequested files: {plan.files}")
+        if llm is None:
+            raw=chat(GENERATOR_SYSTEM+f"\n\nApp name: {plan.name}\nDescription: {plan.description}\nStack: {plan.stack}\nRequested files: {plan.files}",model,base_url)
+        else:
+            raw=llm.generate(GENERATOR_SYSTEM,f"App name: {plan.name}\nDescription: {plan.description}\nStack: {plan.stack}\nRequested files: {plan.files}")
         data=json.loads(raw); files={str(x["path"]):str(x["content"]) for x in data["files"]}
     except (OSError,ValueError,KeyError,TypeError,json.JSONDecodeError):
         files=_fallback_files(plan)
