@@ -1,55 +1,27 @@
 # Prompt → App
 
-Natural-language application builder: describe an app, then let the orchestrator plan, generate, verify, repair, and optionally deploy it.
+Natural-language application builder: describe an app, then let the orchestrator plan, generate, verify, repair, and deploy it.
 
-## v0.8 — cloud deployment
+## v0.8.1 — cloud LLM
 
-The project now includes a small Vercel deployment adapter for generated web apps. Cloud deployment sends the generated files directly to Vercel and returns the resulting URL.
+The production path can use Gemini 2.5 Flash through GEMINI_API_KEY. Local Ollama remains available for development.
 
-    Prompt
-      ↓
-    Planner
-      ↓
-    Generator
-      ↓
-    Static verification
-      ↓
-    Vercel deployment
-      ↓
-    Live URL
+Set GEMINI_API_KEY and VERCEL_TOKEN in the deployment environment, then run:
 
-### Cloud deployment
-
-Set a Vercel API token in the environment:
-
-    export VERCEL_TOKEN=...
     prompt-to-app "Build a simple habit tracker" --cloud
 
-The cloud deployment path targets web apps such as HTML/CSS/JavaScript, React, and other Vercel-compatible projects.
+The cloud path is:
 
-### Local development
+    Prompt → Gemini → Plan → Generate → Verify/Repair → Vercel → URL
+
+No API keys are stored in the repository.
+
+## Local development
 
     python -m venv .venv
     source .venv/bin/activate
     pip install -e '.[dev,browser]'
     playwright install chromium
-
     prompt-to-app "Build a simple habit tracker" --serve --browser
 
-## Pipeline
-
-    Prompt
-      ↓
-    Planner → AppPlan + tests
-      ↓
-    Generator → files
-      ↓
-    Static verification
-      ↓
-    Local HTTP/browser verification OR Vercel deployment
-
-The local Ollama path remains useful for development and testing. It is not the intended end-user runtime.
-
-## Scope
-
-The cloud milestone intentionally targets web applications first. Arbitrary Python, Java, C++, and other server workloads require a separate sandbox/runtime layer.
+The current cloud milestone targets web applications first. Arbitrary Python, Java, C++, or long-running server workloads require a separate sandbox/runtime layer.

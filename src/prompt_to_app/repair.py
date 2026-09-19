@@ -22,7 +22,9 @@ def repair(description:str,current_files:dict[str,str],errors:list[str],model:st
         data=json.loads(raw)
     except Exception as exc: raise RuntimeError(f"repair generation failed: {exc}") from exc
     updates=data.get("files",{})
-    if not isinstance(updates,dict): raise RuntimeError("repair response files must be an object")
+    if isinstance(updates,list):
+        updates={str(item["path"]):str(item["content"]) for item in updates if isinstance(item,dict) and "path" in item and "content" in item}
+    if not isinstance(updates,dict): raise RuntimeError("repair response files must be an object or list")
     safe={}
     for name,content in updates.items():
         path=Path(str(name))
