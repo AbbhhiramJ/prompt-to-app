@@ -1,49 +1,55 @@
 # Prompt → App
 
-Natural-language application builder: describe an app, then let the orchestrator plan, generate, run, test, and repair it.
+Natural-language application builder: describe an app, then let the orchestrator plan, generate, verify, repair, and optionally deploy it.
 
-## v0.7 — test-aware repair
+## v0.8 — cloud deployment
 
-The repair engine now receives structured browser failures such as:
+The project now includes a small Vercel deployment adapter for generated web apps. Cloud deployment sends the generated files directly to Vercel and returns the resulting URL.
 
-```
-TEST 2 click FAILED: selector=#add
-TEST 3 text_visible_after_click FAILED: text='Habit added'
-```
+    Prompt
+      ↓
+    Planner
+      ↓
+    Generator
+      ↓
+    Static verification
+      ↓
+    Vercel deployment
+      ↓
+    Live URL
 
-This keeps repairs targeted instead of giving the model vague browser errors.
+### Cloud deployment
 
-The system still uses a small bounded repair loop; it does not attempt unrestricted autonomous debugging.
+Set a Vercel API token in the environment:
 
-### Run
+    export VERCEL_TOKEN=...
+    prompt-to-app "Build a simple habit tracker" --cloud
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e '.[dev,browser]'
-playwright install chromium
+The cloud deployment path targets web apps such as HTML/CSS/JavaScript, React, and other Vercel-compatible projects.
 
-prompt-to-app "Build a simple habit tracker" --serve --browser
-```
+### Local development
+
+    python -m venv .venv
+    source .venv/bin/activate
+    pip install -e '.[dev,browser]'
+    playwright install chromium
+
+    prompt-to-app "Build a simple habit tracker" --serve --browser
 
 ## Pipeline
 
-```
-Prompt
- ↓
-Planner → AppPlan + tests
- ↓
-Generator → App
- ↓
-Static verification
- ↓
-Run + HTTP check
- ↓
-Playwright interaction tests
- ↓
-Structured failure
- ↓
-Targeted repair
- ↓
-Retest (bounded)
-```
+    Prompt
+      ↓
+    Planner → AppPlan + tests
+      ↓
+    Generator → files
+      ↓
+    Static verification
+      ↓
+    Local HTTP/browser verification OR Vercel deployment
+
+The local Ollama path remains useful for development and testing. It is not the intended end-user runtime.
+
+## Scope
+
+The cloud milestone intentionally targets web applications first. Arbitrary Python, Java, C++, and other server workloads require a separate sandbox/runtime layer.
