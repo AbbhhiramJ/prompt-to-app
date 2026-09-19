@@ -3,7 +3,7 @@ from .planner import plan
 from .generator import generate
 from .verifier import verify
 from .runner import start, wait_for_http
-from .browser import run_browser_tests
+from .browser import check
 from .repair import repair
 from .llm import LLM
 
@@ -20,7 +20,8 @@ def build(prompt: str, output_dir: str | Path="./generated-app", model: str="qwe
         ok,_=wait_for_http(f"http://127.0.0.1:{port}")
         if ok: url=f"http://127.0.0.1:{port}"
         else: errors.append("server did not become ready")
-    if browser and not errors and url: errors.extend(run_browser_tests(url,app.tests))
+    if browser and not errors and url:
+        errors.extend(check(project_dir,url,app.tests))
     repairs=0
     while errors and repairs<max_repairs:
         current={str(p.relative_to(project_dir)):p.read_text(encoding="utf-8") for p in project_dir.rglob("*") if p.is_file()}
@@ -28,6 +29,5 @@ def build(prompt: str, output_dir: str | Path="./generated-app", model: str="qwe
         for name,content in result.files.items():
             path=project_dir/name; path.parent.mkdir(parents=True,exist_ok=True); path.write_text(content,encoding="utf-8")
         errors=verify(project_dir,app.files); repairs+=1
-    if process is not None and not browser:
-        process.terminate()
+    if process is not None and not browser: process.terminate()
     return app,project_dir,errors,url,repairs
