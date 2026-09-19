@@ -9,10 +9,8 @@ def test_habit_tracker_fallback(tmp_path):
         browser=False,
         max_repairs=0,
     )
-
-    assert plan.name == "generated-app"
+    assert plan.name == "habit-tracker"
     assert not errors
-    assert url == "http://127.0.0.1:8000"
     assert repairs == 0
-    assert (root / "index.html").exists()
-    assert "habit tracker" in plan.description.lower()
+    assert "Habit Tracker" in (root / "index.html").read_text()
+

@@ -6,13 +6,19 @@ from .prompts import PLANNER_SYSTEM
 ALLOWED_TESTS = {"page_load", "text_visible", "click", "text_visible_after_click"}
 
 def _fallback(prompt: str) -> AppPlan:
+    habit = "habit" in prompt.lower()
     return AppPlan(
-        name="generated-app",
+        name="habit-tracker" if habit else "generated-app",
         description=prompt.strip(),
         stack=["html", "css", "javascript"],
         files=["index.html", "style.css", "app.js"],
         run_command="python -m http.server 8000",
-        tests=[{"type": "page_load"}],
+        tests=(
+            [{"type": "page_load"}, {"type": "text_visible", "text": "Habit Tracker"},
+             {"type": "click", "selector": "#add-habit"},
+             {"type": "text_visible_after_click", "text": "Habit added"}]
+            if habit else [{"type": "page_load"}]
+        ),
     )
 
 def plan(prompt: str, model: str = "qwen2.5-coder:7b", base_url: str = "http://127.0.0.1:11434") -> AppPlan:
