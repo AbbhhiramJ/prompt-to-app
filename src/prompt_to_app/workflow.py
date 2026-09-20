@@ -1,6 +1,7 @@
 """Agent-side Prompt -> GitHub -> Vercel workflow contract.
-The deployed application never needs an LLM, GitHub token, Vercel token, or provider API key.
-The host agent supplies reasoning and connected-tool access.
+
+The deployed application never needs an LLM, GitHub token, Vercel token, or
+provider API key. The host agent supplies reasoning and connected-tool access.
 """
 from __future__ import annotations
 from dataclasses import dataclass, field
@@ -28,9 +29,10 @@ class BuildState:
     deployment_url: str | None = None
     repairs: int = 0
     errors: list[str] = field(default_factory=list)
+    visual_errors: list[str] = field(default_factory=list)
 
 def workflow_stages() -> tuple[str, ...]:
-    return ("research","plan","create_repository","write_files","test","repair","deploy","verify_live","return_url")
+    return ("research","plan","create_repository","write_files","test","visual_audit","repair","deploy","verify_live","return_url")
 
 def validate_generated_files(files: Mapping[str, str]) -> list[str]:
     errors: list[str] = []
@@ -50,6 +52,7 @@ class PromptToAppWorkflow:
     plan: Callable[[str, Mapping[str, object]], Mapping[str, object]]
     generate: Callable[[str, Mapping[str, object], Mapping[str, object]], Mapping[str, str]]
     test: Callable[[Mapping[str, str]], Sequence[str]]
+    visual_audit: Callable[[Mapping[str, str]], Sequence[str]] | None = None
     repair: Callable[[str, Mapping[str, object], Mapping[str, str], Sequence[str]], Mapping[str, str]] | None = None
 
     def prepare(self, prompt: str) -> tuple[BuildState, Mapping[str, str]]:
@@ -60,6 +63,9 @@ class PromptToAppWorkflow:
         state.plan = dict(self.plan(prompt, state.research))
         files = dict(self.generate(prompt, state.plan, state.research))
         state.errors = validate_generated_files(files) + list(self.test(files))
+        if self.visual_audit is not None and not state.errors:
+            state.visual_errors = list(self.visual_audit(files))
+            state.errors.extend(state.visual_errors)
         return state, files
 
     def repair_until_green(self, state: BuildState, files: Mapping[str, str], max_repairs: int = 2) -> tuple[BuildState, Mapping[str, str]]:
@@ -69,5 +75,9 @@ class PromptToAppWorkflow:
                 break
             current = dict(self.repair(state.prompt, state.plan, current, state.errors))
             state.repairs += 1
+            state.visual_errors = []
             state.errors = validate_generated_files(current) + list(self.test(current))
+            if self.visual_audit is not None and not state.errors:
+                state.visual_errors = list(self.visual_audit(current))
+                state.errors.extend(state.visual_errors)
         return state, current

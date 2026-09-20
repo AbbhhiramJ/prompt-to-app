@@ -7,11 +7,12 @@ from .browser import check
 from .repair import repair
 from .llm import LLM
 from .research import ResearchEngine
+from .visual import audit as visual_audit
 
 def build(prompt: str, output_dir: str|Path="./generated-app", model: str="qwen2.5-coder:7b",
           base_url: str="http://127.0.0.1:11434", serve: bool=False, port: int=8000,
-          max_repairs: int=2, browser: bool=False, llm: LLM|None=None,
-          research: ResearchEngine|None=None):
+          max_repairs: int=2, browser: bool=False, visual: bool=False,
+          llm: LLM|None=None, research: ResearchEngine|None=None):
     if not prompt.strip(): raise ValueError("Prompt cannot be empty")
     if max_repairs<0: raise ValueError("max_repairs must be >= 0")
 
@@ -28,15 +29,19 @@ def build(prompt: str, output_dir: str|Path="./generated-app", model: str="qwen2
 
     if browser and not errors and url:
         errors.extend(check(project_dir,url,app.tests))
+    if visual and not errors and url:
+        errors.extend(visual_audit(url, project_dir / "artifacts" / "visual"))
 
     repairs=0
     while errors and repairs<max_repairs:
-        current={str(p.relative_to(project_dir)):p.read_text(encoding="utf-8") for p in project_dir.rglob("*") if p.is_file()}
+        current={str(p.relative_to(project_dir)):p.read_text(encoding="utf-8") for p in project_dir.rglob("*") if p.is_file() and "artifacts" not in p.parts}
         result=repair(app.description,current,errors,model=model,base_url=base_url,llm=llm)
         for name,content in result.files.items():
             path=project_dir/name; path.parent.mkdir(parents=True,exist_ok=True); path.write_text(content,encoding="utf-8")
-        errors=verify(project_dir); repairs+=1
+        errors=verify(project_dir)
         if browser and url and not errors: errors.extend(check(project_dir,url,app.tests))
+        if visual and url and not errors: errors.extend(visual_audit(url, project_dir / "artifacts" / "visual"))
+        repairs+=1
 
     if process is not None: process.terminate()
     return app,project_dir,errors,url,repairs
