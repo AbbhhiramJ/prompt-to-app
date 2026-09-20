@@ -1,3 +1,4 @@
+import json
 from prompt_to_app.workflow import PromptToAppWorkflow
 
 def test_prepare_injects_web_deployment_contract():
@@ -11,4 +12,6 @@ def test_prepare_injects_web_deployment_contract():
     assert state.errors==[]
     assert "package.json" in files
     assert "vite.config.js" in files
-    assert '"build": "vite build"' in files["package.json"]
+    package=json.loads(files["package.json"])
+    assert package["scripts"]["build"]=="vite build"
+    assert package["scripts"]["dev"]=="vite"
