@@ -14,3 +14,7 @@ def test_blueprint_llm_synthesis():
 def test_blueprint_fallback():
     bp=synthesize("make a habit tracker",{"sources":[{"title":"114 apps","url":"https://example.com"}]})
     assert bp.mvp_scope and bp.evidence
+
+def test_synthesizer_type_is_available():
+    from prompt_to_app.blueprint import Synthesizer
+    assert Synthesizer is not None
