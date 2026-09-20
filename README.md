@@ -4,17 +4,23 @@ A chat-driven autonomous web-app builder.
 
 ## Product flow
 
-A short user prompt is expanded through bounded immersive research before planning and generation.
+A short prompt is expanded through adaptive research before planning and generation.
 
-User prompt -> intent -> research -> product/UX/visual/technical blueprint -> code generation -> testing -> repair -> GitHub -> Vercel -> live URL
+User prompt -> intent -> adaptive research -> product/UX/visual/technical blueprint -> code generation -> functional testing -> visual audit -> repair -> GitHub -> Vercel -> live URL
 
-## Immersive research
+## Adaptive research
 
-The research layer covers similar products, common features, user expectations, UX and interaction patterns, visual and responsive patterns, technical implementation patterns, accessibility, and edge cases.
+Research depth is selected from the prompt itself:
 
-Research is bounded by rounds and source count. Explicit user requirements always have higher priority than research recommendations.
+- **Quick**: simple requests; small source/query budget.
+- **Standard**: normal product requests; broader product, UX, visual and technical research.
+- **Deep**: complex domains or prompts explicitly asking for current/trend research; adds competitor, 2026 trend, accessibility/privacy/security, onboarding/retention and differentiation research.
 
-The ResearchEngine is host-side infrastructure: the host agent supplies search results. Generated apps do not receive search credentials, GitHub tokens, Vercel tokens, Composio credentials, or model API keys.
+The research engine can also generate follow-up questions from what it has already found. It is bounded by rounds and source count so it cannot search indefinitely.
+
+Explicit user requirements always have higher priority than research recommendations.
+
+The host agent supplies the search callback. Generated apps do not receive search credentials, GitHub tokens, Vercel tokens, Composio credentials, or model API keys.
 
 ## Architecture
 
