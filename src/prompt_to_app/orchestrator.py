@@ -17,7 +17,7 @@ def build(prompt,output_dir="./generated-app",model="qwen2.5-coder:7b",base_url=
     blueprint=synthesize(prompt,research_data,synthesizer=synthesizer,llm=llm,model=model).as_dict()
     enriched=dict(research_data); enriched["app_blueprint"]=blueprint
     app=plan(prompt,model=model,base_url=base_url,llm=llm,research=enriched)
-    project_dir=generate(app,output_dir,model=model,base_url=base_url,llm=llm,research=enriched)
+    project_dir=generate(app,output_dir,model=model,base_url=base_url,llm=llm,research=enriched,normalize=True)
     errors=verify(project_dir); url=None; process=None
     if serve and not errors:
         process=start(app.run_command,project_dir); ok,_=wait_for_http(f"http://127.0.0.1:{port}")

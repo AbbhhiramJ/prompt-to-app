@@ -2,22 +2,19 @@
 from __future__ import annotations
 from pathlib import Path
 from typing import Iterable
-
 DEFAULT_VIEWPORTS=((1440,900),(390,844))
-
-def audit(url:str, artifact_dir:str|Path="./artifacts/visual", viewports:Iterable[tuple[int,int]]=DEFAULT_VIEWPORTS, timeout:int=30)->list[str]:
+def audit(url:str,artifact_dir:str|Path="./artifacts/visual",viewports:Iterable[tuple[int,int]]=DEFAULT_VIEWPORTS,timeout:int=30)->list[str]:
     try:
         from playwright.sync_api import sync_playwright
-    except ImportError as exc:
-        raise RuntimeError("Playwright is required for visual audits") from exc
+    except ImportError as exc: raise RuntimeError("Playwright is required for visual audits") from exc
     out=Path(artifact_dir); out.mkdir(parents=True,exist_ok=True); errors=[]
     with sync_playwright() as p:
         try: browser=p.chromium.launch(headless=True)
-        except Exception as exc: return [f"visual browser launch failed: {exc}"]
+        except Exception as exc:
+            return [f"visual {w}x{h}: browser launch failed: {exc}" for w,h in viewports]
         try:
             for width,height in viewports:
-                label=f"visual {width}x{height}"
-                page=browser.new_page(viewport={"width":width,"height":height})
+                label=f"visual {width}x{height}"; page=browser.new_page(viewport={"width":width,"height":height})
                 try:
                     response=page.goto(url,wait_until="networkidle",timeout=timeout*1000)
                     if response is None or response.status>=400:
