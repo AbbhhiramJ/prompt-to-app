@@ -2,28 +2,22 @@
 
 A chat-driven autonomous web-app builder.
 
-## The actual product
-You type:
+## Product flow
 
-Make a habit tracker for me by following the current app trends.
+A short user prompt is expanded through bounded immersive research before planning and generation.
 
-The connected agent then:
+User prompt -> intent -> research -> product/UX/visual/technical blueprint -> code generation -> testing -> repair -> GitHub -> Vercel -> live URL
 
-research -> plan -> GitHub repo -> generate files -> test -> repair -> commit -> Vercel deploy -> verify -> return URL
+## Immersive research
 
-The generated application does not need GitHub, Vercel, Composio, or model API keys.
+The research layer covers similar products, common features, user expectations, UX and interaction patterns, visual and responsive patterns, technical implementation patterns, accessibility, and edge cases.
+
+Research is bounded by rounds and source count. Explicit user requirements always have higher priority than research recommendations.
+
+The ResearchEngine is host-side infrastructure: the host agent supplies search results. Generated apps do not receive search credentials, GitHub tokens, Vercel tokens, Composio credentials, or model API keys.
 
 ## Architecture
-The host agent owns reasoning and connected-tool authentication. This repository contains the reusable workflow contract and local development implementation.
 
-GitHub is the source of truth. Vercel deploys the committed repository.
+GitHub is the source of truth. Vercel deploys committed repository revisions. Local Ollama remains available for development and tests, but production reasoning belongs to the connected host agent.
 
-## Credentials
-The production workflow does not require the user to paste API keys into the generated application or into this repository.
-
-The first target is ₹0 in additional user-supplied credentials or paid provider subscriptions. Existing connected GitHub/Vercel access is used.
-
-## Local development
-Local Ollama support remains available for development. It is not required for the production chat workflow.
-
-See docs/production-flow.md for the execution contract.
+The initial target remains ₹0 in additional user-supplied credentials or paid provider subscriptions.
