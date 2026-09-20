@@ -10,22 +10,17 @@ from .research import ResearchEngine
 from .visual import audit as visual_audit
 from .blueprint import synthesize, Synthesizer
 
-def build(prompt: str, output_dir: str|Path="./generated-app", model: str="qwen2.5-coder:7b",
-          base_url: str="http://127.0.0.1:11434", serve: bool=False, port: int=8000,
-          max_repairs: int=2, browser: bool=False, visual: bool=False,
-          llm: LLM|None=None, research: ResearchEngine|None=None,
-          synthesizer: Synthesizer|None=None):
+def build(prompt,output_dir="./generated-app",model="qwen2.5-coder:7b",base_url="http://127.0.0.1:11434",serve=False,port=8000,max_repairs=2,browser=False,visual=False,llm:LLM|None=None,research:ResearchEngine|None=None,synthesizer:Synthesizer|None=None):
     if not prompt.strip(): raise ValueError("Prompt cannot be empty")
     if max_repairs<0: raise ValueError("max_repairs must be >= 0")
-    research_data=research.run(prompt).as_dict() if research is not None else {}
-    blueprint=synthesize(prompt,research_data,synthesizer).as_dict()
+    research_data=research.run(prompt).as_dict() if research else {}
+    blueprint=synthesize(prompt,research_data,synthesizer=synthesizer,llm=llm,model=model).as_dict()
     enriched=dict(research_data); enriched["app_blueprint"]=blueprint
     app=plan(prompt,model=model,base_url=base_url,llm=llm,research=enriched)
     project_dir=generate(app,output_dir,model=model,base_url=base_url,llm=llm,research=enriched)
     errors=verify(project_dir); url=None; process=None
     if serve and not errors:
-        process=start(app.run_command,project_dir)
-        ok,_=wait_for_http(f"http://127.0.0.1:{port}")
+        process=start(app.run_command,project_dir); ok,_=wait_for_http(f"http://127.0.0.1:{port}")
         if ok: url=f"http://127.0.0.1:{port}"
         else: errors.append("server did not become ready")
     if browser and not errors and url: errors.extend(check(project_dir,url,app.tests))
