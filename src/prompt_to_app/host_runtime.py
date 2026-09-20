@@ -5,11 +5,13 @@ capability callables and receives structured progress events plus a final result
 """
 
 from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Callable, Mapping, Optional
 
-from .factory import FactoryResult, SoftwareFactory
+from .factory import FactoryCapabilities, FactoryResult, SoftwareFactory
 from .workflow import PromptToAppWorkflow
+
 
 @dataclass(frozen=True)
 class HostCapabilities:
@@ -18,21 +20,36 @@ class HostCapabilities:
     deploy: Callable[[str, str], str]
     verify_live: Callable[[str], bool]
 
+    def as_factory_capabilities(self) -> FactoryCapabilities:
+        return FactoryCapabilities(
+            create_repository=self.create_repository,
+            write_repository=self.write_repository,
+            deploy=self.deploy,
+            verify_live=self.verify_live,
+        )
+
+
 @dataclass(frozen=True)
 class ProgressEvent:
     stage: str
     message: str
 
+
 class PromptToAppHost:
     """Single host-facing entry point for a natural-language app request."""
-    STAGES = ("understand", "research", "blueprint", "generate", "test", "visual_audit",
-              "repair", "github", "deploy", "verify_live", "complete")
 
-    def __init__(self, workflow: PromptToAppWorkflow, capabilities: HostCapabilities,
-                 emit: Optional[Callable[[ProgressEvent], None]] = None) -> None:
-        self.factory = SoftwareFactory(workflow, capabilities.create_repository,
-                                       capabilities.write_repository, capabilities.deploy,
-                                       capabilities.verify_live)
+    STAGES = (
+        "understand", "research", "blueprint", "generate", "test",
+        "visual_audit", "repair", "github", "deploy", "verify_live", "complete",
+    )
+
+    def __init__(
+        self,
+        workflow: PromptToAppWorkflow,
+        capabilities: HostCapabilities,
+        emit: Optional[Callable[[ProgressEvent], None]] = None,
+    ) -> None:
+        self.factory = SoftwareFactory(workflow, capabilities.as_factory_capabilities())
         self.emit = emit or (lambda _event: None)
 
     def run(self, prompt: str, max_repairs: int = 2) -> FactoryResult:
