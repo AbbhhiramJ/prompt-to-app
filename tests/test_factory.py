@@ -40,3 +40,40 @@ def test_factory_does_not_publish_failed_artifacts():
     ).build("make it", max_repairs=0)
     assert result.status == "failed"
     assert result.repository_url is None
+
+
+def test_factory_reports_failed_deploy_without_leaking_provider_exception():
+    secret = "secret-provider-credential"
+    def broken_deploy(_url, _sha):
+        raise RuntimeError(secret)
+
+    result = SoftwareFactory(
+        make_workflow(),
+        FactoryCapabilities(
+            lambda *_: "https://github.com/example/demo-app",
+            lambda *_: "abc123",
+            broken_deploy,
+            lambda *_: True,
+        ),
+    ).build("make a demo")
+    assert result.status == "failed"
+    assert result.repository_url == "https://github.com/example/demo-app"
+    assert result.live_url is None
+    assert "deploy adapter error" in result.state.errors[-1]
+    assert secret not in repr(result)
+    assert "deploy" in result.next_action
+
+
+def test_factory_does_not_claim_live_when_verifier_raises():
+    result = SoftwareFactory(
+        make_workflow(),
+        FactoryCapabilities(
+            lambda *_: "https://github.com/example/demo-app",
+            lambda *_: "abc123",
+            lambda *_: "https://demo.example.com",
+            lambda *_: (_ for _ in ()).throw(TimeoutError("network timeout")),
+        ),
+    ).build("make a demo")
+    assert result.status == "failed"
+    assert result.live_url == "https://demo.example.com"
+    assert "verify_live adapter error" in result.state.errors[-1]
