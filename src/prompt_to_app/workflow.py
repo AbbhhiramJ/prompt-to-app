@@ -55,28 +55,36 @@ class PromptToAppWorkflow:
     visual_audit: Callable[[Mapping[str, str]], Sequence[str]] | None = None
     repair: Callable[[str, Mapping[str, object], Mapping[str, str], Sequence[str]], Mapping[str, str]] | None = None
 
-    def prepare(self, prompt: str) -> tuple[BuildState, Mapping[str, str]]:
+    def prepare(self, prompt: str, on_stage: Callable[[str], None] | None = None) -> tuple[BuildState, Mapping[str, str]]:
         if not prompt.strip():
             raise ValueError("prompt cannot be empty")
+        notify = on_stage or (lambda _stage: None)
         state=BuildState(prompt=prompt)
+        notify("research")
         state.research=dict(self.research(prompt))
+        notify("blueprint")
         state.plan=dict(self.plan(prompt,state.research))
+        notify("generate")
         files=dict(self.generate(prompt,state.plan,state.research))
         if "index.html" in files:
             files.setdefault("package.json",'{"name":"generated-app","private":true,"version":"1.0.0","scripts":{"build":"vite build","dev":"vite"}}')
             files.setdefault("vite.config.js","export default {}\\n")
         state.errors=validate_generated_files(files)
+        notify("test")
         state.errors.extend(self.test(files))
         if self.visual_audit is not None and not state.errors:
+            notify("visual_audit")
             state.visual_errors=list(self.visual_audit(files))
             state.errors.extend(state.visual_errors)
         return state,files
 
-    def repair_until_green(self,state: BuildState,files: Mapping[str,str],max_repairs: int=2) -> tuple[BuildState,Mapping[str,str]]:
+    def repair_until_green(self,state: BuildState,files: Mapping[str,str],max_repairs: int=2,on_stage: Callable[[str], None] | None = None) -> tuple[BuildState,Mapping[str,str]]:
         if max_repairs<0: raise ValueError("max_repairs must be >= 0")
+        notify = on_stage or (lambda _stage: None)
         current=dict(files)
         while state.errors and state.repairs<max_repairs:
             if self.repair is None: break
+            notify("repair")
             current=dict(self.repair(state.prompt,state.plan,current,state.errors))
             if "index.html" in current:
                 current.setdefault("package.json",'{"name":"generated-app","private":true,"version":"1.0.0","scripts":{"build":"vite build","dev":"vite"}}')
@@ -84,8 +92,10 @@ class PromptToAppWorkflow:
             state.repairs+=1
             state.visual_errors=[]
             state.errors=validate_generated_files(current)
+            notify("test")
             state.errors.extend(self.test(current))
             if self.visual_audit is not None and not state.errors:
+                notify("visual_audit")
                 state.visual_errors=list(self.visual_audit(current))
                 state.errors.extend(state.visual_errors)
         return state,current
