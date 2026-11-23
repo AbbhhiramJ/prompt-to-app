@@ -199,6 +199,9 @@ class GitHubVercelAdapter:
         })
         deployment = self._vercel("POST", "/v13/deployments", {
             "name": project_name,
+            # Vercel REST API accepts "staging" for Preview. An omitted target
+            # can default to Production, especially on the first deployment.
+            "target": "staging",
             "gitSource": {
                 "type": "github", "repoId": str(repo_id),
                 "ref": branch, "sha": commit_sha,
@@ -208,6 +211,8 @@ class GitHubVercelAdapter:
         hostname = deployment.get("url")
         if not isinstance(deployment_id, str) or not isinstance(hostname, str):
             raise ProviderError("Vercel deployment details missing")
+        if deployment.get("target") == "production":
+            raise ProviderError("Refusing production deployment")
         url = "https://" + hostname
         if not urlparse(url).hostname or not urlparse(url).hostname.endswith(".vercel.app"):
             raise ProviderError("Unexpected Vercel deployment hostname")
@@ -221,6 +226,8 @@ class GitHubVercelAdapter:
         for attempt in range(self.verify_attempts):
             result = self._vercel("GET", "/v13/deployments/" + quote(deployment_id, safe=""))
             state = result.get("readyState")
+            if result.get("target") == "production":
+                return False
             if state == "READY":
                 return self.transport.probe(url)
             if state in {"ERROR", "CANCELED"}:
