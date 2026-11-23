@@ -30,10 +30,25 @@ class SoftwareFactory:
         if not prompt.strip():
             raise ValueError("prompt cannot be empty")
         notify = on_stage or (lambda _stage: None)
+        if max_repairs < 0:
+            raise ValueError("max_repairs must be non-negative")
         notify("understand")
-        state, files = self.workflow.prepare(prompt, on_stage=notify)
-        if state.errors:
-            state, files = self.workflow.repair_until_green(state, files, max_repairs=max_repairs, on_stage=notify)
+        state = BuildState(prompt=prompt)
+        try:
+            state, files = self.workflow.prepare(prompt, on_stage=notify)
+            if state.errors:
+                state, files = self.workflow.repair_until_green(
+                    state, files, max_repairs=max_repairs, on_stage=notify
+                )
+        except Exception as exc:
+            # Generated projects and host providers are untrusted. Never expose
+            # exception messages containing local paths or provider secrets.
+            state.errors.append(f"generation error: {type(exc).__name__}")
+            return FactoryResult(
+                state, "failed",
+                summary="Application generation stopped before verification.",
+                next_action="Inspect the generation and test logs, then retry.",
+            )
         if state.errors:
             return FactoryResult(state, "failed", summary="Generated app did not pass local verification.", next_action="Repair the reported errors and rerun the factory.")
         name = str(state.plan.get("name", "generated-app"))
