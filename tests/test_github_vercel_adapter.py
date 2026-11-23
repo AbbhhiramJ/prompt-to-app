@@ -73,7 +73,7 @@ def test_end_to_end_api_contract_uses_private_repo_and_preview_only():
     assert ref_payload["force"] is False
     vercel_payload = next(p for m, u, _, p in transport.calls if u.endswith("/v13/deployments"))
     assert vercel_payload["gitSource"]["sha"] == A
-    assert vercel_payload.get("target") != "production"
+    assert vercel_payload["target"] == "staging"
     assert transport.verified_urls == [deployment]
     assert all("secret" not in str(p) for _, _, _, p in transport.calls)
 
@@ -103,3 +103,17 @@ def test_unknown_deployment_and_remote_failure_are_not_ready():
     assert adapter.verify_live("https://unknown.vercel.app") is False
     adapter._deployments["https://demo-123.vercel.app"] = "dep_test"
     assert adapter.verify_live("https://demo-123.vercel.app") is True
+
+
+def test_production_target_is_not_marked_ready():
+    class ProductionTransport(FakeTransport):
+        def request(self, method, url, token, payload=None):
+            if url.endswith("/v13/deployments/dep_test"):
+                return {"readyState": "READY", "target": "production"}
+            return super().request(method, url, token, payload)
+
+    adapter = GitHubVercelAdapter(
+        "github-secret", "vercel-secret", transport=ProductionTransport(), verify_attempts=1
+    )
+    adapter._deployments["https://demo-123.vercel.app"] = "dep_test"
+    assert adapter.verify_live("https://demo-123.vercel.app") is False
