@@ -5,6 +5,7 @@ applications never receive provider credentials.
 """
 from __future__ import annotations
 from dataclasses import dataclass, field
+import re
 from typing import Callable, Mapping, Protocol, Sequence
 
 from .deployment import ensure_deployment_metadata
@@ -36,14 +37,39 @@ class BuildState:
 def workflow_stages() -> tuple[str, ...]:
     return ("understand","research","blueprint","generate","test","visual_audit","repair","create_repository","write_files","deploy","verify_live","return_url")
 
+MAX_GENERATED_FILES = 100
+MAX_GENERATED_TEXT_BYTES = 2_000_000
+
 def validate_generated_files(files: Mapping[str, str]) -> list[str]:
-    errors=[]
-    for path,content in files.items():
-        normalized=path.replace("\\","/")
-        if not normalized or normalized.startswith("/") or normalized.startswith("../") or "/../" in normalized or normalized=="..":
+    """Reject unsafe repository paths before executing tests or publishing artifacts."""
+    errors: list[str] = []
+    if len(files) > MAX_GENERATED_FILES:
+        errors.append(f"too many generated files (limit {MAX_GENERATED_FILES})")
+    total_bytes = 0
+    for path, content in files.items():
+        if not isinstance(path, str):
+            errors.append("unsafe non-text file path")
+            continue
+        normalized = path.replace("\\", "/")
+        parts = normalized.split("/")
+        # Do not allow writes outside the intended repository tree, Git metadata,
+        # CI workflows, or credential files under host-owned paths.
+        unsafe = (
+            not normalized or normalized.startswith("/")
+            or bool(re.match(r"^[A-Za-z]:", normalized))
+            or any(part in {"", ".", ".."} for part in parts)
+            or any(ord(ch) < 32 or ord(ch) == 127 for ch in normalized)
+            or any(part.lower() in {".git", ".github"} for part in parts)
+            or any(part.lower() == ".env" or part.lower().startswith(".env.") for part in parts)
+        )
+        if unsafe:
             errors.append(f"unsafe path: {path}")
-        if not isinstance(content,str):
+        if not isinstance(content, str):
             errors.append(f"non-text content: {path}")
+            continue
+        total_bytes += len(content.encode("utf-8"))
+    if total_bytes > MAX_GENERATED_TEXT_BYTES:
+        errors.append(f"generated files exceed {MAX_GENERATED_TEXT_BYTES} bytes")
     return errors
 
 @dataclass
@@ -70,8 +96,9 @@ class PromptToAppWorkflow:
             files.setdefault("package.json",'{"name":"generated-app","private":true,"version":"1.0.0","scripts":{"build":"vite build","dev":"vite"}}')
             files.setdefault("vite.config.js","export default {}\\n")
         state.errors=validate_generated_files(files)
-        notify("test")
-        state.errors.extend(self.test(files))
+        if not state.errors:
+            notify("test")
+            state.errors.extend(self.test(files))
         if self.visual_audit is not None and not state.errors:
             notify("visual_audit")
             state.visual_errors=list(self.visual_audit(files))
@@ -92,8 +119,9 @@ class PromptToAppWorkflow:
             state.repairs+=1
             state.visual_errors=[]
             state.errors=validate_generated_files(current)
-            notify("test")
-            state.errors.extend(self.test(current))
+            if not state.errors:
+                notify("test")
+                state.errors.extend(self.test(current))
             if self.visual_audit is not None and not state.errors:
                 notify("visual_audit")
                 state.visual_errors=list(self.visual_audit(current))
