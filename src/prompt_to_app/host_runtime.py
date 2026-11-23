@@ -53,21 +53,23 @@ class PromptToAppHost:
         self.emit = emit or (lambda _event: None)
 
     def run(self, prompt: str, max_repairs: int = 2) -> FactoryResult:
-        if not prompt.strip():
-            raise ValueError("prompt cannot be empty")
-        self.emit(ProgressEvent("understand", "Understanding the app request."))
-        self.emit(ProgressEvent("research", "Researching relevant current product patterns."))
-        self.emit(ProgressEvent("blueprint", "Building an evidence-aware product blueprint."))
-        self.emit(ProgressEvent("generate", "Generating the application files."))
-        self.emit(ProgressEvent("test", "Running functional verification."))
-        self.emit(ProgressEvent("visual_audit", "Checking desktop and mobile presentation."))
-        self.emit(ProgressEvent("repair", "Repairing only if verification reports a failure."))
-        result = self.factory.build(prompt, max_repairs=max_repairs)
-        if result.status == "ready":
-            self.emit(ProgressEvent("github", "Repository created and application committed."))
-            self.emit(ProgressEvent("deploy", "Deploying the generated repository."))
-            self.emit(ProgressEvent("verify_live", "Verifying the production deployment."))
-            self.emit(ProgressEvent("complete", "Application is live."))
-        else:
-            self.emit(ProgressEvent("complete", "Build stopped before verified readiness."))
+        messages = {
+            "understand": "Understanding the app request.",
+            "research": "Researching relevant current product patterns.",
+            "blueprint": "Building an evidence-aware product blueprint.",
+            "generate": "Generating the application files.",
+            "test": "Running functional verification.",
+            "visual_audit": "Checking desktop and mobile presentation.",
+            "repair": "Repairing verification failures.",
+            "github": "Creating the repository and committing generated files.",
+            "deploy": "Deploying the generated repository.",
+            "verify_live": "Verifying the live deployment.",
+        }
+        result = self.factory.build(
+            prompt,
+            max_repairs=max_repairs,
+            on_stage=lambda stage: self.emit(ProgressEvent(stage, messages[stage])),
+        )
+        message = "Application is live." if result.status == "ready" else "Build stopped before verified readiness."
+        self.emit(ProgressEvent("complete", message))
         return result
