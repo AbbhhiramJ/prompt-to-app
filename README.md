@@ -87,3 +87,36 @@ The repository contains provider-neutral contracts so GitHub, Vercel, web resear
 **Build the factory once; generated applications should stay simple.**
 
 The first successful habit-tracker build proved that the generation pipeline can produce a real interactive application. The next stage is making the same pipeline reusable for arbitrary application prompts and completing the host-agent GitHub → Vercel → live-URL loop.
+
+## GitHub + Vercel adapter (opt-in)
+
+`prompt_to_app.github_vercel.GitHubVercelAdapter` now implements the real API boundary:
+
+- GitHub: create **private** repository, verify its visibility, write generated files as one Git-tree commit using a non-forced ref update.
+- Vercel: create a project linked to the repository, request an unpromoted preview deployment for that exact commit, poll the deployment state, then check the HTTPS site.
+- The provider adapter does not execute generated code locally or include host tokens in generated files. Vercel still executes builds remotely. A trusted host must supply research/generation/test callbacks and enforce isolated execution for any untrusted tests.
+
+**Publishing is disabled by default.** A trusted operator must explicitly opt in and provide environment secrets *outside the generated project*:
+
+```bash
+export PROMPT_TO_APP_ENABLE_PUBLISH=yes
+export GITHUB_TOKEN=...            # scoped to creating/writing private repos
+export VERCEL_TOKEN=...            # scoped to the intended Vercel account
+export VERCEL_TEAM_ID=...          # optional team scope
+```
+
+From trusted host-only Python code:
+
+```python
+from prompt_to_app.github_vercel import GitHubVercelAdapter
+from prompt_to_app.factory import SoftwareFactory
+
+provider = GitHubVercelAdapter.from_environment()
+factory = SoftwareFactory(workflow, provider.capabilities())
+result = factory.build("Build a small habit tracker")
+# The host is responsible for defining 'workflow' and its isolated tests.
+```
+
+No credentials or automated real-provider deployment were available during CI. Contract tests use an in-memory fake transport, and the existing CLI smoke test is local. **Do not treat this as production-ready until a controlled real GitHub/Vercel integration test, free-quota review and sandbox isolation are complete.** Failed deployments may leave a private GitHub repository and Vercel project for deliberate manual cleanup. Vercel project creation requires the account's GitHub integration to have repository access.
+
+API references: [Vercel project creation](https://vercel.com/docs/projects/managing-projects), [Vercel deployments](https://vercel.com/docs/deployments), [GitHub Git Data API](https://docs.github.com/en/rest/git).

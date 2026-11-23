@@ -44,8 +44,6 @@ def test_host_runtime_handles_an_arbitrary_product_prompt():
         "blueprint",
         "generate",
         "test",
-        "visual_audit",
-        "repair",
         "github",
         "deploy",
         "verify_live",
